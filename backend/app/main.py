@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from collections import defaultdict
 import json
 
 from app.database import engine, Base, get_db
@@ -14,6 +15,8 @@ from app import services
 from app.mercure import create_subscriber_token, publish_room_event
 
 scheduler = AsyncIOScheduler()
+
+room_users: dict[str, set[str]] = defaultdict(set)
 
 
 def cleanup_expired_rooms():
@@ -110,7 +113,7 @@ async def send_message(room_id: str, message_data: MessageCreate, db: Session = 
         "id": message.id,
         "encrypted_content": message.encrypted_content,
         "sender_name": message.sender_name,
-        "timestamp": message.timestamp.isoformat()
+        "timestamp": message.timestamp.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
     })
     
     return message
@@ -124,9 +127,13 @@ async def join_room(room_id: str, username: str, db: Session = Depends(get_db)):
     if not room:
         raise HTTPException(status_code=404, detail="Room not found or expired")
     
-    await publish_room_event(room_id, "user_joined", {"username": username})
+    is_new_user = username not in room_users[room_id]
+    room_users[room_id].add(username)
     
-    return {"success": True, "room_id": room_id}
+    if is_new_user:
+        await publish_room_event(room_id, "user_joined", {"username": username})
+    
+    return {"success": True, "room_id": room_id, "users": list(room_users[room_id])}
 
 
 @app.post("/rooms/{room_id}/leave")
@@ -134,10 +141,26 @@ async def leave_room(room_id: str, username: str, db: Session = Depends(get_db))
     """Leave a room and notify other users."""
     room = services.get_room(db, room_id)
     
+    room_users[room_id].discard(username)
+    
+    if not room_users[room_id]:
+        del room_users[room_id]
+    
     if room:
         await publish_room_event(room_id, "user_left", {"username": username})
     
     return {"success": True}
+
+
+@app.get("/rooms/{room_id}/users")
+async def get_room_users(room_id: str, db: Session = Depends(get_db)):
+    """Get list of active users in a room."""
+    room = services.get_room(db, room_id)
+    
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found or expired")
+    
+    return {"users": list(room_users[room_id])}
 
 
 @app.get("/rooms/{room_id}/subscribe-token", response_model=MercureToken)

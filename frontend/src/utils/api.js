@@ -78,6 +78,16 @@ export async function leaveRoom(roomId, username) {
   });
 }
 
+export async function getRoomUsers(roomId) {
+  const response = await fetch(`${API_URL}/rooms/${roomId}/users`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to get room users');
+  }
+  
+  return response.json();
+}
+
 export async function getSubscribeToken(roomId) {
   const response = await fetch(`${API_URL}/rooms/${roomId}/subscribe-token`);
   

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from datetime import datetime
+from pydantic import BaseModel, Field, field_serializer
+from datetime import datetime, timezone
 from typing import Optional, List
 
 
@@ -14,6 +14,10 @@ class RoomResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer('created_at', 'expires_at')
+    def serialize_datetime(self, dt: datetime) -> str:
+        return dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
 
 
 class MessageCreate(BaseModel):
@@ -31,6 +35,10 @@ class MessageResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @field_serializer('timestamp')
+    def serialize_datetime(self, dt: datetime) -> str:
+        return dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+
 
 class RoomJoin(BaseModel):
     username: str = Field(..., min_length=1, max_length=50)
@@ -40,6 +48,10 @@ class RoomInfo(BaseModel):
     id: str
     expires_at: datetime
     message_count: int
+
+    @field_serializer('expires_at')
+    def serialize_datetime(self, dt: datetime) -> str:
+        return dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
 
 
 class MercureToken(BaseModel):
