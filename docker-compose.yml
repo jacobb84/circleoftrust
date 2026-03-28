@@ -1,0 +1,57 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/circleoftrust.db
+      - MERCURE_PUBLISHER_JWT_KEY=${MERCURE_PUBLISHER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}
+      - MERCURE_URL=http://mercure:80/.well-known/mercure
+    volumes:
+      - ./backend:/app
+      - sqlite_data:/app/data
+    depends_on:
+      - mercure
+    networks:
+      - cot_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_MERCURE_URL=http://localhost:3000/.well-known/mercure
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - cot_network
+
+  mercure:
+    image: dunglas/mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_PUBLISHER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}'
+      MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_SUBSCRIBER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}'
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins http://localhost:5173 http://localhost:3000
+        anonymous
+    ports:
+      - "3000:80"
+    networks:
+      - cot_network
+
+volumes:
+  sqlite_data:
+
+networks:
+  cot_network:
+    driver: bridge

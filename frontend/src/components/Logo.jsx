@@ -1,0 +1,31 @@
+import React from 'react';
+
+export default function Logo({ size = 48, className = '' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="circleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2dd4bf" />
+          <stop offset="100%" stopColor="#0d4f4f" />
+        </linearGradient>
+        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1e3a5f" />
+          <stop offset="100%" stopColor="#0a0f1a" />
+        </linearGradient>
+      </defs>
+      <circle cx="24" cy="24" r="22" stroke="url(#circleGrad)" strokeWidth="3" fill="url(#shieldGrad)" />
+      <circle cx="24" cy="24" r="16" stroke="#2dd4bf" strokeWidth="1.5" fill="none" opacity="0.5" />
+      <circle cx="24" cy="24" r="10" stroke="#2dd4bf" strokeWidth="1" fill="none" opacity="0.3" />
+      <path d="M24 12 L30 18 L30 28 Q30 34 24 36 Q18 34 18 28 L18 18 Z" fill="url(#circleGrad)" opacity="0.9" />
+      <circle cx="24" cy="22" r="3" fill="#0a0f1a" />
+      <rect x="22.5" y="25" width="3" height="6" rx="1" fill="#0a0f1a" />
+    </svg>
+  );
+}
