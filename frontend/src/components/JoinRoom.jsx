@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Shield, Users, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
-import { checkRoomExists } from '../utils/api';
+import { checkRoomExists, joinRoom } from '../utils/api';
 
 export default function JoinRoom() {
   const { roomId } = useParams();
@@ -36,7 +36,9 @@ export default function JoinRoom() {
     checkRoom();
   }, [roomId, navigate]);
 
-  const handleJoin = (e) => {
+  const [isJoining, setIsJoining] = useState(false);
+
+  const handleJoin = async (e) => {
     e.preventDefault();
     
     if (!password || password.length < 4) {
@@ -49,9 +51,26 @@ export default function JoinRoom() {
       return;
     }
 
-    sessionStorage.setItem(`room_${roomId}_password`, password);
-    sessionStorage.setItem(`room_${roomId}_username`, username);
-    navigate(`/room/${roomId}`);
+    setIsJoining(true);
+    setError('');
+    
+    try {
+      const result = await joinRoom(roomId, username.trim());
+      sessionStorage.setItem(`room_${roomId}_password`, password);
+      sessionStorage.setItem(`room_${roomId}_username`, username.trim());
+      if (result.session_token) {
+        sessionStorage.setItem(`room_${roomId}_token`, result.session_token);
+      }
+      navigate(`/room/${roomId}`);
+    } catch (err) {
+      if (err.message.includes('already taken')) {
+        setError('Username already taken in this room. Please choose another.');
+      } else {
+        setError('Failed to join room. Please try again.');
+      }
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   if (isChecking) {
@@ -144,9 +163,10 @@ export default function JoinRoom() {
 
           <button
             type="submit"
-            className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-teal-400 hover:to-cyan-400 transition-all shadow-lg shadow-teal-500/25"
+            disabled={isJoining}
+            className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-teal-400 hover:to-cyan-400 transition-all shadow-lg shadow-teal-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Join Room
+            {isJoining ? 'Joining...' : 'Join Room'}
           </button>
         </form>
 

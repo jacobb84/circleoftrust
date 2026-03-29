@@ -43,17 +43,22 @@ export async function getMessages(roomId) {
   return response.json();
 }
 
-export async function sendMessage(roomId, encryptedContent, senderName) {
+export async function sendMessage(roomId, encryptedContent, sessionToken) {
   const response = await fetch(`${API_URL}/rooms/${roomId}/messages`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
     body: JSON.stringify({
-      encrypted_content: encryptedContent,
-      sender_name: senderName
+      encrypted_content: encryptedContent
     })
   });
   
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Session expired - please rejoin the room');
+    }
     throw new Error('Failed to send message');
   }
   
@@ -66,6 +71,9 @@ export async function joinRoom(roomId, username) {
   });
   
   if (!response.ok) {
+    if (response.status === 409) {
+      throw new Error('Username already taken in this room');
+    }
     throw new Error('Failed to join room');
   }
   

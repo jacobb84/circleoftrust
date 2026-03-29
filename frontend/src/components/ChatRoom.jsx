@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Send, Users, Clock, LogOut, Copy, Check, Shield, AlertTriangle, X } from 'lucide-react';
 import Logo from './Logo';
-import { getRoomInfo, getMessages, sendMessage, joinRoom, leaveRoom, subscribeToRoom } from '../utils/api';
+import { getRoomInfo, getMessages, sendMessage, joinRoom, leaveRoom, subscribeToRoom, getRoomUsers } from '../utils/api';
 import { encryptMessage, decryptMessage } from '../utils/crypto';
 
 export default function ChatRoom() {
@@ -18,12 +18,15 @@ export default function ChatRoom() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showUserList, setShowUserList] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [sessionToken, setSessionToken] = useState(null);
   const messagesEndRef = useRef(null);
   const eventSourceRef = useRef(null);
   const userListRef = useRef(null);
+  const seenEventsRef = useRef(new Set());
 
   const password = sessionStorage.getItem(`room_${roomId}_password`);
   const username = sessionStorage.getItem(`room_${roomId}_username`);
+  const storedToken = sessionStorage.getItem(`room_${roomId}_token`);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -61,11 +64,21 @@ export default function ChatRoom() {
         );
         setMessages(decryptedMessages);
 
-        const joinResult = await joinRoom(roomId, username);
-        if (joinResult.users) {
-          setOnlineUsers(joinResult.users);
+        if (storedToken) {
+          setSessionToken(storedToken);
+          const usersResult = await getRoomUsers(roomId);
+          setOnlineUsers(usersResult.users || [username]);
         } else {
-          setOnlineUsers([username]);
+          const joinResult = await joinRoom(roomId, username);
+          if (joinResult.users) {
+            setOnlineUsers(joinResult.users);
+          } else {
+            setOnlineUsers([username]);
+          }
+          if (joinResult.session_token) {
+            setSessionToken(joinResult.session_token);
+            sessionStorage.setItem(`room_${roomId}_token`, joinResult.session_token);
+          }
         }
 
         eventSourceRef.current = subscribeToRoom(roomId, null, async (data) => {
@@ -83,7 +96,9 @@ export default function ChatRoom() {
               }];
             });
           } else if (data.type === 'user_joined') {
-            if (data.username !== username) {
+            const eventKey = `join_${data.username}_${Date.now() - (Date.now() % 5000)}`;
+            if (data.username !== username && !seenEventsRef.current.has(eventKey)) {
+              seenEventsRef.current.add(eventKey);
               setOnlineUsers((prev) => {
                 if (!prev.includes(data.username)) {
                   return [...prev, data.username];
@@ -93,10 +108,17 @@ export default function ChatRoom() {
               addAnnouncement(`${data.username} joined the room`);
             }
           } else if (data.type === 'user_left') {
+            const eventKey = `leave_${data.username}_${Date.now() - (Date.now() % 5000)}`;
             setOnlineUsers((prev) => prev.filter(u => u !== data.username));
-            if (data.username !== username) {
+            if (data.username !== username && !seenEventsRef.current.has(eventKey)) {
+              seenEventsRef.current.add(eventKey);
               addAnnouncement(`${data.username} left the room`);
             }
+          } else if (data.type === 'room_deleted') {
+            sessionStorage.removeItem(`room_${roomId}_password`);
+            sessionStorage.removeItem(`room_${roomId}_username`);
+            sessionStorage.removeItem(`room_${roomId}_token`);
+            navigate('/', { state: { message: 'Room has been closed' } });
           }
         });
       } catch (err) {
@@ -134,7 +156,10 @@ export default function ChatRoom() {
 
       if (diff <= 0) {
         setTimeLeft('Expired');
-        navigate('/');
+        sessionStorage.removeItem(`room_${roomId}_password`);
+        sessionStorage.removeItem(`room_${roomId}_username`);
+        sessionStorage.removeItem(`room_${roomId}_token`);
+        navigate('/', { state: { message: 'Room has expired' } });
         return;
       }
 
@@ -155,15 +180,18 @@ export default function ChatRoom() {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || isSending) return;
+    if (!newMessage.trim() || isSending || !sessionToken) return;
 
     setIsSending(true);
     try {
       const encrypted = await encryptMessage(newMessage, password);
-      await sendMessage(roomId, encrypted, username);
+      await sendMessage(roomId, encrypted, sessionToken);
       setNewMessage('');
     } catch (err) {
       console.error('Failed to send message:', err);
+      if (err.message.includes('Session expired')) {
+        addAnnouncement('Session expired - please rejoin the room');
+      }
     } finally {
       setIsSending(false);
     }
@@ -173,6 +201,7 @@ export default function ChatRoom() {
     await leaveRoom(roomId, username);
     sessionStorage.removeItem(`room_${roomId}_password`);
     sessionStorage.removeItem(`room_${roomId}_username`);
+    sessionStorage.removeItem(`room_${roomId}_token`);
     navigate('/');
   };
 
@@ -205,8 +234,8 @@ export default function ChatRoom() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-slate-900/80 backdrop-blur-xl border-b border-teal-500/20 px-4 py-3">
+    <div className="h-screen flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-xl border-b border-teal-500/20 px-4 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Logo size={36} />
@@ -286,20 +315,19 @@ export default function ChatRoom() {
         </div>
       </header>
 
-      {announcements.length > 0 && (
-        <div className="max-w-4xl mx-auto w-full px-4">
-          {announcements.map((announcement) => (
-            <div
-              key={announcement.id}
-              className="mt-2 px-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-center text-sm text-slate-400 animate-pulse"
-            >
-              {announcement.text}
-            </div>
-          ))}
-        </div>
-      )}
-
       <main className="flex-1 overflow-hidden flex flex-col max-w-4xl mx-auto w-full">
+        {announcements.length > 0 && (
+          <div className="flex-shrink-0 px-4 pt-2">
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id}
+                className="mb-2 px-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-center text-sm text-slate-400 animate-pulse"
+              >
+                {announcement.text}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-12">
@@ -334,7 +362,7 @@ export default function ChatRoom() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="flex-shrink-0 p-4 border-t border-slate-800 bg-slate-950/50">
           <form onSubmit={handleSend} className="flex gap-3">
             <input
               type="text"
@@ -355,7 +383,7 @@ export default function ChatRoom() {
             <Shield className="w-3 h-3" />
             <span>End-to-end encrypted</span>
             <span className="text-slate-700">•</span>
-            <span className="text-slate-700">v1.0.2</span>
+            <span className="text-slate-700">v1.0.8</span>
           </div>
         </div>
       </main>

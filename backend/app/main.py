@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
@@ -12,7 +12,7 @@ from app.schemas import (
     RoomInfo, MercureToken
 )
 from app import services
-from app.mercure import create_subscriber_token, publish_room_event
+from app.mercure import create_subscriber_token, publish_room_event, create_session_token, validate_session_token
 
 scheduler = AsyncIOScheduler()
 
@@ -102,9 +102,23 @@ async def get_messages(room_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/rooms/{room_id}/messages", response_model=MessageResponse)
-async def send_message(room_id: str, message_data: MessageCreate, db: Session = Depends(get_db)):
-    """Send an encrypted message to a room."""
-    message = services.add_message(db, room_id, message_data)
+async def send_message(
+    room_id: str,
+    message_data: MessageCreate,
+    db: Session = Depends(get_db),
+    authorization: str = Header(None)
+):
+    """Send an encrypted message to a room. Requires valid session token."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Session token required")
+    
+    token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+    verified_username = validate_session_token(token, room_id)
+    
+    if not verified_username:
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+    
+    message = services.add_message(db, room_id, message_data.encrypted_content, verified_username)
     
     if not message:
         raise HTTPException(status_code=404, detail="Room not found or expired")
@@ -121,33 +135,46 @@ async def send_message(room_id: str, message_data: MessageCreate, db: Session = 
 
 @app.post("/rooms/{room_id}/join")
 async def join_room(room_id: str, username: str, db: Session = Depends(get_db)):
-    """Join a room and notify other users."""
+    """Join a room and notify other users. Returns a session token for authentication."""
     room = services.get_room(db, room_id)
     
     if not room:
         raise HTTPException(status_code=404, detail="Room not found or expired")
     
-    is_new_user = username not in room_users[room_id]
+    if username in room_users[room_id]:
+        raise HTTPException(status_code=409, detail="Username already taken in this room")
+    
+    is_new_user = True
     room_users[room_id].add(username)
     
     if is_new_user:
         await publish_room_event(room_id, "user_joined", {"username": username})
     
-    return {"success": True, "room_id": room_id, "users": list(room_users[room_id])}
+    session_token = create_session_token(room_id, username)
+    
+    return {
+        "success": True,
+        "room_id": room_id,
+        "users": list(room_users[room_id]),
+        "session_token": session_token
+    }
 
 
 @app.post("/rooms/{room_id}/leave")
 async def leave_room(room_id: str, username: str, db: Session = Depends(get_db)):
-    """Leave a room and notify other users."""
+    """Leave a room and notify other users. Deletes room if last user leaves."""
     room = services.get_room(db, room_id)
     
     room_users[room_id].discard(username)
     
-    if not room_users[room_id]:
-        del room_users[room_id]
-    
     if room:
         await publish_room_event(room_id, "user_left", {"username": username})
+    
+    if not room_users[room_id]:
+        del room_users[room_id]
+        if room:
+            await publish_room_event(room_id, "room_deleted", {"reason": "all_users_left"})
+            services.delete_room(db, room_id)
     
     return {"success": True}
 

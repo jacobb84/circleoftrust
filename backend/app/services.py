@@ -48,7 +48,7 @@ def room_exists(db: Session, room_id: str) -> bool:
     return db.query(Room).filter(Room.id == room_id).first() is not None
 
 
-def add_message(db: Session, room_id: str, message_data: MessageCreate) -> Message | None:
+def add_message(db: Session, room_id: str, encrypted_content: str, sender_name: str) -> Message | None:
     """Add an encrypted message to a room."""
     room = get_room(db, room_id)
     
@@ -57,8 +57,8 @@ def add_message(db: Session, room_id: str, message_data: MessageCreate) -> Messa
     
     message = Message(
         room_id=room_id,
-        encrypted_content=message_data.encrypted_content,
-        sender_name=message_data.sender_name
+        encrypted_content=encrypted_content,
+        sender_name=sender_name
     )
     
     db.add(message)
@@ -99,3 +99,16 @@ def get_room_info(db: Session, room_id: str) -> dict | None:
         "expires_at": room.expires_at,
         "message_count": message_count
     }
+
+
+def delete_room(db: Session, room_id: str) -> bool:
+    """Delete a room and all its messages."""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    
+    if not room:
+        return False
+    
+    db.query(Message).filter(Message.room_id == room_id).delete()
+    db.delete(room)
+    db.commit()
+    return True

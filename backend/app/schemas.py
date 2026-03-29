@@ -22,7 +22,6 @@ class RoomResponse(BaseModel):
 
 class MessageCreate(BaseModel):
     encrypted_content: str
-    sender_name: str = Field(..., min_length=1, max_length=50)
 
 
 class MessageResponse(BaseModel):

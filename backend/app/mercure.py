@@ -1,9 +1,32 @@
 import httpx
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from app.config import get_settings
 
 settings = get_settings()
+
+SESSION_SECRET = settings.mercure_publisher_jwt_key + "_session"
+
+
+def create_session_token(room_id: str, username: str) -> str:
+    """Create a session token for a user in a room."""
+    payload = {
+        "room_id": room_id,
+        "username": username,
+        "exp": datetime.utcnow() + timedelta(hours=2)
+    }
+    return jwt.encode(payload, SESSION_SECRET, algorithm="HS256")
+
+
+def validate_session_token(token: str, room_id: str) -> str | None:
+    """Validate a session token and return the username if valid."""
+    try:
+        payload = jwt.decode(token, SESSION_SECRET, algorithms=["HS256"])
+        if payload.get("room_id") != room_id:
+            return None
+        return payload.get("username")
+    except JWTError:
+        return None
 
 
 def create_mercure_jwt(topics: list[str], publish: bool = True, subscribe: bool = True) -> str:
