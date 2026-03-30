@@ -23,6 +23,7 @@ export default function ChatRoom() {
   const eventSourceRef = useRef(null);
   const userListRef = useRef(null);
   const seenEventsRef = useRef(new Set());
+  const initedRef = useRef(false);
 
   const password = sessionStorage.getItem(`room_${roomId}_password`);
   const username = sessionStorage.getItem(`room_${roomId}_username`);
@@ -44,6 +45,9 @@ export default function ChatRoom() {
       navigate(`/join/${roomId}`);
       return;
     }
+
+    if (initedRef.current) return;
+    initedRef.current = true;
 
     const initRoom = async () => {
       try {
@@ -134,9 +138,8 @@ export default function ChatRoom() {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
-      leaveRoom(roomId, username);
     };
-  }, [roomId, password, username, navigate]);
+  }, [roomId, password, username, navigate, storedToken]);
 
   const addAnnouncement = (text) => {
     const id = Date.now();
@@ -383,7 +386,7 @@ export default function ChatRoom() {
             <Shield className="w-3 h-3" />
             <span>End-to-end encrypted</span>
             <span className="text-slate-700">•</span>
-            <span className="text-slate-700">v1.0.8</span>
+            <span className="text-slate-700">v1.0.9</span>
           </div>
         </div>
       </main>

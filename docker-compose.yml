@@ -24,8 +24,8 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_MERCURE_URL=http://localhost:3000/.well-known/mercure
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - VITE_MERCURE_URL=${VITE_MERCURE_URL:-http://localhost:3000/.well-known/mercure}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -42,7 +42,7 @@ services:
       MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_PUBLISHER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}'
       MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_SUBSCRIBER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}'
       MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins http://localhost:5173 http://localhost:3000
+        cors_origins ${MERCURE_CORS_ORIGINS:-http://localhost:5173 http://localhost:3000}
         anonymous
     ports:
       - "3000:80"
