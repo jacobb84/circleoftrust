@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    restart: unless-stopped
     environment:
       - DATABASE_URL=sqlite:///./data/circleoftrust.db
       - MERCURE_PUBLISHER_JWT_KEY=${MERCURE_PUBLISHER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}
@@ -27,6 +28,7 @@ services:
         - VITE_MERCURE_URL=${VITE_MERCURE_URL:-http://localhost:3000/.well-known/mercure}
     ports:
       - "5173:80"
+    restart: unless-stopped
     depends_on:
       - backend
     networks:
