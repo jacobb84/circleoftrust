@@ -5,12 +5,14 @@ from typing import Optional, List
 
 class RoomCreate(BaseModel):
     duration_minutes: int = Field(..., ge=10, le=60, description="Room duration in minutes (10-60)")
+    password_test: str = Field(..., description="Encrypted 'OKAY' string for password validation")
 
 
 class RoomResponse(BaseModel):
     id: str
     created_at: datetime
     expires_at: datetime
+    password_test: str
 
     class Config:
         from_attributes = True
@@ -47,6 +49,7 @@ class RoomInfo(BaseModel):
     id: str
     expires_at: datetime
     message_count: int
+    password_test: str
 
     @field_serializer('expires_at')
     def serialize_datetime(self, dt: datetime) -> str:

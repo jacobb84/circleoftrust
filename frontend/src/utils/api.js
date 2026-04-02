@@ -1,11 +1,11 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:3000/.well-known/mercure';
 
-export async function createRoom(durationMinutes) {
+export async function createRoom(durationMinutes, passwordTest) {
   const response = await fetch(`${API_URL}/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ duration_minutes: durationMinutes })
+    body: JSON.stringify({ duration_minutes: durationMinutes, password_test: passwordTest })
   });
   
   if (!response.ok) {

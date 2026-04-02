@@ -10,6 +10,7 @@ class Room(Base):
     id = Column(String(10), primary_key=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+    password_test = Column(Text, nullable=True)
     
     messages = relationship("Message", back_populates="room", cascade="all, delete-orphan")
 

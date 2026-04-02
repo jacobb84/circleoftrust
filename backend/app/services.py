@@ -23,7 +23,8 @@ def create_room(db: Session, room_data: RoomCreate) -> Room:
     
     room = Room(
         id=room_id,
-        expires_at=expires_at
+        expires_at=expires_at,
+        password_test=room_data.password_test
     )
     
     db.add(room)
@@ -97,7 +98,8 @@ def get_room_info(db: Session, room_id: str) -> dict | None:
     return {
         "id": room.id,
         "expires_at": room.expires_at,
-        "message_count": message_count
+        "message_count": message_count,
+        "password_test": room.password_test
     }
 
 

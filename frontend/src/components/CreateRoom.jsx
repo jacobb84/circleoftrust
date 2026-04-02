@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, Shield, Users, Copy, Check } from 'lucide-react';
 import Logo from './Logo';
 import { createRoom } from '../utils/api';
+import { encryptMessage } from '../utils/crypto';
 
 export default function CreateRoom() {
   const navigate = useNavigate();
@@ -31,7 +32,8 @@ export default function CreateRoom() {
     setError('');
 
     try {
-      const room = await createRoom(duration);
+      const passwordTest = await encryptMessage('OKAY', password);
+      const room = await createRoom(duration, passwordTest);
       setCreatedRoom(room);
     } catch (err) {
       setError('Failed to create room. Please try again.');
@@ -72,16 +74,16 @@ export default function CreateRoom() {
               </div>
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Room Created!</h2>
-            <p className="text-slate-400">Your secure room is ready</p>
+            <p className="text-slate-300">Your secure room is ready</p>
           </div>
 
           <div className="bg-slate-800/50 rounded-lg p-4 mb-6">
-            <div className="text-sm text-slate-400 mb-1">Room ID</div>
+            <div className="text-sm text-slate-300 mb-1">Room ID</div>
             <div className="font-mono text-teal-400 text-lg">{createdRoom.id}</div>
           </div>
 
           <div className="bg-slate-800/50 rounded-lg p-4 mb-6">
-            <div className="text-sm text-slate-400 mb-1">Share Link</div>
+            <div className="text-sm text-slate-300 mb-1">Share Link</div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -91,12 +93,13 @@ export default function CreateRoom() {
               />
               <button
                 onClick={copyLink}
+                aria-label={copied ? "Link copied" : "Copy share link"}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
               >
                 {copied ? (
-                  <Check className="w-4 h-4 text-teal-400" />
+                  <Check className="w-4 h-4 text-teal-400" aria-hidden="true" />
                 ) : (
-                  <Copy className="w-4 h-4 text-slate-400" />
+                  <Copy className="w-4 h-4 text-slate-300" aria-hidden="true" />
                 )}
               </button>
             </div>
@@ -127,68 +130,76 @@ export default function CreateRoom() {
             <Logo size={64} />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Circle of Trust</h1>
-          <p className="text-slate-400">Create a secure, temporary chat room</p>
+          <p className="text-slate-300">Create a secure, temporary chat room</p>
         </div>
 
         <form onSubmit={handleCreate} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              <Users className="w-4 h-4 inline mr-2" />
+            <label htmlFor="username" className="block text-sm font-medium text-slate-200 mb-2">
+              <Users className="w-4 h-4 inline mr-2" aria-hidden="true" />
               Your Username
             </label>
             <input
+              id="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Anonymous"
               maxLength={50}
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+              aria-describedby="username-desc"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              <Shield className="w-4 h-4 inline mr-2" />
+            <label htmlFor="password" className="block text-sm font-medium text-slate-200 mb-2">
+              <Shield className="w-4 h-4 inline mr-2" aria-hidden="true" />
               Room Password (Encryption Key)
             </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Strong password for E2E encryption"
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+              aria-describedby="password-desc"
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500 transition-all"
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p id="password-desc" className="text-xs text-slate-400 mt-1">
               This password encrypts all messages. Share it securely with participants.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">
-              <Clock className="w-4 h-4 inline mr-2" />
-              Room Duration
-            </label>
-            <div className="grid grid-cols-5 gap-2">
-              {durations.map((d) => (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => setDuration(d.value)}
-                  className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                    duration === d.value
-                      ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25'
-                      : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700'
-                  }`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
+            <fieldset>
+              <legend className="block text-sm font-medium text-slate-200 mb-3">
+                <Clock className="w-4 h-4 inline mr-2" aria-hidden="true" />
+                Room Duration
+              </legend>
+              <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Select room duration">
+                {durations.map((d) => (
+                  <button
+                    key={d.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={duration === d.value}
+                    onClick={() => setDuration(d.value)}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      duration === d.value
+                        ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25'
+                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
@@ -205,15 +216,15 @@ export default function CreateRoom() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <div className="text-teal-400 text-lg font-semibold">E2E</div>
-              <div className="text-slate-500 text-xs">Encrypted</div>
+              <div className="text-slate-400 text-xs">Encrypted</div>
             </div>
             <div>
               <div className="text-teal-400 text-lg font-semibold">Temp</div>
-              <div className="text-slate-500 text-xs">Auto-Delete</div>
+              <div className="text-slate-400 text-xs">Auto-Delete</div>
             </div>
             <div>
               <div className="text-teal-400 text-lg font-semibold">Anon</div>
-              <div className="text-slate-500 text-xs">No Tracking</div>
+              <div className="text-slate-400 text-xs">No Tracking</div>
             </div>
           </div>
         </div>
