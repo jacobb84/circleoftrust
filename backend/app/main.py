@@ -13,6 +13,7 @@ from app.schemas import (
 )
 from app import services
 from app.mercure import create_subscriber_token, publish_room_event, create_session_token, validate_session_token
+from app.config import get_settings
 
 scheduler = AsyncIOScheduler()
 
@@ -50,9 +51,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

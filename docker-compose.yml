@@ -9,6 +9,7 @@ services:
       - DATABASE_URL=sqlite:///./data/circleoftrust.db
       - MERCURE_PUBLISHER_JWT_KEY=${MERCURE_PUBLISHER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}
       - MERCURE_URL=http://mercure:80/.well-known/mercure
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173 http://localhost:3000}
     volumes:
       - ./backend:/app
       - sqlite_data:/app/data
@@ -42,7 +43,7 @@ services:
       MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_PUBLISHER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}'
       MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_SUBSCRIBER_JWT_KEY:-!ChangeThisMercureHubJWTSecretKey!}'
       MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins ${MERCURE_CORS_ORIGINS:-http://localhost:5173 http://localhost:3000}
+        cors_origins ${CORS_ORIGINS:-http://localhost:5173 http://localhost:3000}
         anonymous
     ports:
       - "3000:80"
