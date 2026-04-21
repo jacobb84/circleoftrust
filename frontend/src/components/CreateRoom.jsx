@@ -50,7 +50,8 @@ export default function CreateRoom() {
 
   const copyLink = () => {
     const link = `${window.location.origin}/room/${createdRoom.id}`;
-    navigator.clipboard.writeText(link);
+    const shareText = `Join my Circle of Trust room:\n${link}\n\nPassword: ${password}`;
+    navigator.clipboard.writeText(shareText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

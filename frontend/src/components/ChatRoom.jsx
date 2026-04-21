@@ -435,7 +435,7 @@ export default function ChatRoom() {
             <Shield className="w-3 h-3" aria-hidden="true" />
             <span>End-to-end encrypted</span>
             <span className="text-slate-500">•</span>
-            <span className="text-slate-500">v1.1.1</span>
+            <span className="text-slate-500">v1.1.2</span>
           </div>
         </div>
       </main>
